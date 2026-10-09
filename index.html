@@ -1,32 +1,693 @@
-<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bot 24/24</title>
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bot Trading — Dashboard live</title>
 <style>
-:root{--bg:#0b0e14;--c:#121722;--tx:#d6dbe5;--m:#7d889a;--g:#00e676;--r:#ff1744}
-body{background:var(--bg);color:var(--tx);font:14px system-ui,sans-serif;max-width:900px;margin:0 auto;padding:16px}
-.c{background:var(--c);border-radius:8px;padding:12px;margin:12px 0}.m{color:var(--m);font-size:12px}
-table{width:100%;border-collapse:collapse}td,th{padding:6px;text-align:right}td:first-child,th:first-child{text-align:left}
-.g{color:var(--g)}.r{color:var(--r)}.t{display:flex;justify-content:space-between;gap:8px;padding:8px;border-left:4px solid;margin:6px 0;background:#0b0e14;border-radius:6px}
-</style></head><body>
-<h2>🤖 Bot 24/24 — trades réels</h2><div class="m" id="up"></div>
-<div class="c"><b>Quel intervalle est le plus rentable ?</b><div id="rank" style="margin-top:8px"></div></div>
-<div class="c"><b>Positions ouvertes</b><div id="open" style="margin-top:8px"></div></div>
-<div class="c"><b>Derniers trades</b><div id="list"></div></div>
+:root{--bg:#0b0e14;--card:#121722;--line:#1c2433;--tx:#d6dbe5;--mut:#7d889a;--g:#00e676;--r:#ff1744}
+*{box-sizing:border-box}html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--tx);font:14px system-ui,sans-serif;display:flex;flex-direction:column}
+header{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 14px;border-bottom:1px solid var(--line)}
+input,select,button{background:var(--card);color:var(--tx);border:1px solid var(--line);border-radius:6px;padding:6px 10px;font:inherit}
+input{width:110px;text-transform:uppercase}button{cursor:pointer}
+label{color:var(--mut);display:flex;gap:4px;align-items:center}
+#price{font-size:22px;font-weight:700;margin-left:auto}#status{font-size:12px;color:var(--mut)}
+main{flex:1;display:flex;min-height:0}
+#col{flex:1;min-width:0;display:flex;flex-direction:column}
+#chart{flex:1;min-height:0}#rsiC,#macdC{height:105px;border-top:1px solid var(--line);position:relative}
+#rsiC::before,#macdC::before{position:absolute;left:8px;top:4px;z-index:5;color:var(--mut);font-size:11px;pointer-events:none}
+#rsiC::before{content:'RSI 14'}#macdC::before{content:'MACD 12·26·9'}
+aside{width:300px;border-left:1px solid var(--line);padding:14px;overflow:auto}
+.card{background:var(--card);border-radius:8px;padding:12px;margin-bottom:12px}
+.big{font-size:20px;font-weight:700}.mut{color:var(--mut);font-size:12px}
+#bar{height:8px;border-radius:4px;background:linear-gradient(90deg,var(--r),#444,var(--g));position:relative;margin:10px 0}
+#dot{position:absolute;top:-3px;width:14px;height:14px;border-radius:50%;background:#fff;transform:translateX(-50%);left:50%;transition:left .3s}
+.sig{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--line);font-size:13px}
+.b{color:var(--g)}.s{color:var(--r)}
+#tabs{display:flex;gap:6px;padding:6px 14px 0;border-bottom:1px solid var(--line)}
+#tabs button{border:0;border-bottom:2px solid transparent;border-radius:0;background:none;color:var(--mut);padding:6px 12px}
+#tabs button.on{color:var(--tx);border-color:var(--g)}
+#smartView,#botView{flex:1;min-width:0;overflow:auto;padding:14px;display:none}
+#tradesView{flex:1;min-width:0;overflow:auto;padding:14px;display:none}
+.chips{display:flex;gap:8px;margin-bottom:12px}.chip{flex:1;background:var(--card);border-radius:8px;padding:10px;text-align:center}
+.tr{display:flex;gap:14px;background:var(--card);border-radius:8px;padding:12px;margin-bottom:8px}.tl{width:120px}.tm{flex:1}
+@media(max-width:700px){main{flex-direction:column}aside{width:auto;border-left:0;border-top:1px solid var(--line);max-height:40%}}
+</style>
+</head>
+<body>
+<header>
+  <input id="sym" value="BTC/EUR" aria-label="Symbole">
+  <select id="iv"><option>1m</option><option>5m</option><option>15m</option><option>1h</option><option selected>4h</option><option>1d</option></select>
+  <select id="strat" title="Stratégie du bot"><option value="A">Stratégie A · classique</option><option value="B">Stratégie B · améliorée</option><option value="C">Stratégie C · + smart money</option></select>
+  <button id="go">Charger</button>
+  <button class="asset" data-s="BTC/EUR" title="Bitcoin">₿ BTC</button><button class="asset" data-s="ALHAF" title="Haffner Energy (Euronext Growth Paris)">⚡ ALHAF</button>
+  <button id="csvBtn" title="Importer un fichier CSV (Date, Open, High, Low, Close, Volume)">📂 CSV</button><input type="file" id="csv" accept=".csv,.txt" hidden>
+  <button id="relayBtn" title="Adresse d'un relais en ligne (facultatif)">🔌 Relais</button>
+  <label><input type="checkbox" id="ema" data-g="ema" checked style="width:auto">EMA</label>
+  <label><input type="checkbox" id="bb" data-g="bb" checked style="width:auto">Bollinger</label>
+  <label><input type="checkbox" id="st" data-g="st" checked style="width:auto">SuperTrend</label>
+  <label><input type="checkbox" id="fib" checked style="width:auto">Fibonacci</label>
+  <span id="status"></span>
+  <span id="smBadge" title="Score Smart Money : clique pour ouvrir" style="cursor:pointer;font-weight:700;padding:4px 10px;border:1px solid var(--line);border-radius:14px">🧠 …</span>
+  <span id="price">—</span>
+</header>
+<nav id="tabs"><button class="on" data-t="chart">📈 Graphique</button><button data-t="trades">🧾 Trades <span id="tc" class="mut"></span></button><button data-t="smart">🐋 Smart money</button><button data-t="bot">🤖 Bot 24/24</button></nav>
+<main>
+  <div id="col"><div id="chart"></div><div id="rsiC"></div><div id="macdC"></div></div>
+  <div id="tradesView"></div>
+  <div id="smartView"></div>
+  <div id="botView"></div>
+  <aside>
+    <div class="card" id="eff">
+      <div class="mut">Efficacité du bot · si tu avais mis <b id="cap1">1000</b></div>
+      <div style="display:flex;gap:8px;margin:10px 0">
+        <div style="flex:1;background:#0b0e14;border-radius:6px;padding:8px;text-align:center"><div class="mut">AVANT<br>sans bot</div><div class="big" id="without">—</div></div>
+        <div style="flex:1;background:#0b0e14;border-radius:6px;padding:8px;text-align:center"><div class="mut">APRÈS<br>avec bot</div><div class="big" id="withbot">—</div></div>
+      </div>
+      <div class="mut" id="period" style="font-size:11px;line-height:1.5;margin-bottom:8px"></div>
+      <div id="verdict" style="font-weight:600;margin-bottom:10px">—</div>
+      <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span class="b" id="cw">✔ 0</span><span class="mut" id="cr">—</span><span class="s" id="cl">✘ 0</span></div>
+      <div style="height:8px;border-radius:4px;background:var(--r);overflow:hidden"><div id="wbar" style="height:100%;width:0;background:var(--g);transition:width .4s"></div></div>
+    </div>
+    <div class="card"><div class="mut">Validation sur données jamais vues</div>
+      <button id="wf" style="margin:8px 0;width:100%">🔬 Lancer la validation</button><div id="wfOut" class="mut" style="font-size:12px;line-height:1.5"></div></div>
+    <div class="card"><div class="mut">Comparer tous les intervalles</div>
+      <button id="cmp" style="margin:8px 0;width:100%">Lancer la comparaison</button>
+      <div id="cmpT" class="mut" style="font-size:12px"></div></div>
+    <div class="card"><div class="mut">Score de confluence</div>
+      <div class="big" id="bias">—</div><div id="bar"><div id="dot"></div></div>
+      <div class="mut" id="ind"></div></div>
+    <div class="card"><div class="mut">Position du bot</div><div class="big" id="pos">—</div><div class="mut" id="perf" style="line-height:1.6;margin-top:6px"></div></div>
+    <div class="card"><div class="mut" style="margin-bottom:6px">Derniers signaux du bot</div><div id="log"><span class="mut">Aucun pour l'instant</span></div></div>
+    <div class="mut">Signaux sur bougies clôturées, achat seulement, stop 2×ATR, objectif 3×ATR, frais Kraken 0,26 % inclus. Les performances passées ne garantissent rien. Pas un conseil financier.</div>
+  </aside>
+</main>
 <script>
-const $=i=>document.getElementById(i),
-pc=x=>`<span class="${x>=0?'g':'r'}">${x>=0?'+':''}${(x*100).toFixed(1)}%</span>`,
-dt=t=>new Date(t*1000).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}),
-get=u=>fetch(u+'?t='+Date.now()).then(r=>r.ok?r.json():null).catch(()=>null);
-(async()=>{
- const [S,T0]=await Promise.all([get('data/state.json'),get('data/trades.json')]), T=T0||[];
- if(!S){$('rank').textContent='Pas encore de données : lance le workflow dans GitHub (onglet Actions).';return}
- const K=Object.keys(S), G={}; K.forEach(k=>G[k]={n:0,w:0,eq:1});
- T.forEach(t=>{const g=G[t.key]||(G[t.key]={n:0,w:0,eq:1});g.n++;g.w+=t.pct>0;g.eq*=1+t.pct});
- $('up').textContent='Dernière bougie analysée : '+dt(Math.max(...K.map(k=>S[k].last)));
- $('rank').innerHTML='<table><tr class="m"><th>Actif · intervalle</th><th>Trades</th><th>Réussite</th><th>Résultat</th></tr>'+
-  Object.entries(G).sort((a,b)=>b[1].eq-a[1].eq).map(([k,g])=>`<tr><td>${k.replace(/\|/g,' · ')}</td><td>${g.n}</td><td>${g.n?Math.round(g.w/g.n*100)+'%':'—'}</td><td>${pc(g.eq-1)}</td></tr>`).join('')+'</table>'+
-  '<div class="m" style="margin-top:6px">Sous ~30 trades, le résultat n\'est pas fiable. Frais Kraken inclus.</div>';
- const O=K.filter(k=>S[k].pos);
- $('open').innerHTML=O.length?O.map(k=>{const p=S[k].pos;return `<div class="t" style="border-color:#ffd54f"><span>🟡 ${k.replace(/\|/g,' · ')}</span><span>acheté ${p.px.toFixed(2)} · 🛑 ${p.sl.toFixed(2)} ${p.tp?' · 🎯 '+p.tp.toFixed(2):' · stop suiveur'} <span class="m">${dt(p.t)}</span></span></div>`}).join(''):'<span class="m">Aucune pour l\'instant</span>';
- const W={STOP:'🛑 Stop',OBJECTIF:'🎯 Objectif',VENTE:'↩️ Retournement'};
- $('list').innerHTML=T.length?T.slice(-50).reverse().map(t=>`<div class="t" style="border-color:var(${t.pct>=0?'--g':'--r'})"><span><b>${t.key.replace(/\|/g,' · ')}</b> <span class="m">${W[t.why]}</span></span><span>${t.p0.toFixed(2)} → ${t.p1.toFixed(2)} · ${pc(t.pct)} <span class="m">${dt(t.t1)}</span></span></div>`).join(''):'<div class="m" style="padding:8px 0">Aucun trade terminé. Le bot attend un signal.</div>';
-})();
-</script></body></html>
+function app(){
+const $ = id => document.getElementById(id);
+let STRAT = 'A', FEE = 0.0026, ASSET_SLIP = 0.0005, isStock = false; const MACRO = {etf:{}, fng:{}}; const T = 3, SECS = {'1m':60,'5m':300,'15m':900,'1h':3600,'4h':14400,'1d':86400};
+const fmt = p => p >= 100 ? p.toFixed(2) : p.toPrecision(4);
+
+const base = vis => ({layout:{background:{color:'#0b0e14'},textColor:'#9aa4b2'},grid:{vertLines:{color:'#151a23'},horzLines:{color:'#151a23'}},
+  rightPriceScale:{minimumWidth:80},timeScale:{timeVisible:true,secondsVisible:false,visible:vis}});
+const mkChart = (id, vis) => { const el = $(id), c = LightweightCharts.createChart(el, base(vis));
+  new ResizeObserver(() => requestAnimationFrame(() => c.resize(el.clientWidth, el.clientHeight))).observe(el); return c; };
+const chart = mkChart('chart', false), rsiCh = mkChart('rsiC', false), macdCh = mkChart('macdC', true);
+const candles = chart.addCandlestickSeries({upColor:'#26a69a',downColor:'#ef5350',borderVisible:false,wickUpColor:'#26a69a',wickDownColor:'#ef5350'});
+const L = color => chart.addLineSeries({color,lineWidth:1,priceLineVisible:false,lastValueVisible:false});
+const lines = {ema20:L('#ff9800'),ema50:L('#00bcd4'),ema200:L('#e040fb'),bbu:L('#8a93a3'),bbl:L('#8a93a3'),stUp:L('#26a69a'),stDn:L('#ef5350')};
+const groups = {ema:['ema20','ema50','ema200'],bb:['bbu','bbl'],st:['stUp','stDn']};
+const vol = chart.addHistogramSeries({priceScaleId:'vol',priceFormat:{type:'volume'},lastValueVisible:false,priceLineVisible:false});
+chart.priceScale('vol').applyOptions({scaleMargins:{top:.85,bottom:0}});
+const rsiS = rsiCh.addLineSeries({color:'#b388ff',lineWidth:1,priceLineVisible:false});
+[30,70].forEach(v => rsiS.createPriceLine({price:v,color:'#555',lineStyle:2,lineWidth:1,axisLabelVisible:false}));
+const mhS = macdCh.addHistogramSeries({priceLineVisible:false,lastValueVisible:false});
+const macdL = macdCh.addLineSeries({color:'#00bcd4',lineWidth:1,priceLineVisible:false,lastValueVisible:false});
+const sigL = macdCh.addLineSeries({color:'#ff9800',lineWidth:1,priceLineVisible:false,lastValueVisible:false});
+let syncing = false; const allCh = [chart, rsiCh, macdCh];
+allCh.forEach(a => a.timeScale().subscribeVisibleLogicalRangeChange(r => { if(!r || syncing) return; syncing = true;
+  allCh.forEach(b => b !== a && b.timeScale().setVisibleLogicalRange(r)); syncing = false; }));
+const showLast = () => { const n = data.length; chart.timeScale().setVisibleLogicalRange({from:Math.max(0,n-150),to:n+5}); };
+document.querySelectorAll('[data-g]').forEach(cb => cb.onchange = () =>
+  groups[cb.dataset.g].forEach(k => lines[k].applyOptions({visible:cb.checked})));
+
+const ema = (a,n) => { const k=2/(n+1); let p=a[0]; return a.map((v,i)=> i ? (p=v*k+p*(1-k)) : p); };
+
+function compute(d){
+  const c = d.map(x=>x.close), n = c.length, v = d.map(x=>x.volume||0), hasVol = v.some(x=>x>0);
+  const e20=ema(c,20), e50=ema(c,50), e200=ema(c,200);
+  const m12=ema(c,12), m26=ema(c,26), macd=m12.map((x,i)=>x-m26[i]), sg=ema(macd,9), mh=macd.map((x,i)=>x-sg[i]);
+  const bbu=[], bbl=[], bbm=[];
+  for(let i=0;i<n;i++){
+    if(i<19){bbu.push(null);bbl.push(null);bbm.push(null);continue}
+    let t=0; for(let j=i-19;j<=i;j++) t+=c[j];
+    const m=t/20; let q=0; for(let j=i-19;j<=i;j++) q+=(c[j]-m)**2;
+    const sd=Math.sqrt(q/20); bbu.push(m+2*sd); bbl.push(m-2*sd); bbm.push(m);
+  }
+  const rsi=[]; let ag=0, al=0;
+  for(let i=0;i<n;i++){
+    if(!i){rsi.push(50);continue}
+    const df=c[i]-c[i-1]; ag=(ag*13+Math.max(df,0))/14; al=(al*13+Math.max(-df,0))/14;
+    rsi.push(al===0?100:100-100/(1+ag/al));
+  }
+  const W=(a,k)=>{let p=a[0]; return a.map((x,i)=> i ? (p=(p*(k-1)+x)/k) : p)};
+  const tr=d.map((x,i)=> i ? Math.max(x.high-x.low,Math.abs(x.high-c[i-1]),Math.abs(x.low-c[i-1])) : x.high-x.low);
+  const atr=W(tr,14), atr10=W(tr,10);
+  const pdm=d.map((x,i)=>{ if(!i) return 0; const u=x.high-d[i-1].high, dn=d[i-1].low-x.low; return u>dn&&u>0?u:0 });
+  const mdm=d.map((x,i)=>{ if(!i) return 0; const u=x.high-d[i-1].high, dn=d[i-1].low-x.low; return dn>u&&dn>0?dn:0 });
+  const pa=W(pdm,14), ma=W(mdm,14), pdi=pa.map((x,i)=>100*x/atr[i]), mdi=ma.map((x,i)=>100*x/atr[i]);
+  const adx=W(pdi.map((x,i)=>100*Math.abs(x-mdi[i])/((x+mdi[i])||1)),14);
+  const st=[], dir=[]; let fu=0, fl=0, td=1;
+  for(let i=0;i<n;i++){
+    const hl=(d[i].high+d[i].low)/2, ub=hl+3*atr10[i], lb=hl-3*atr10[i];
+    if(!i){fu=ub;fl=lb}
+    else{ const nu=(ub<fu||c[i-1]>fu)?ub:fu, nl=(lb>fl||c[i-1]<fl)?lb:fl; fu=nu; fl=nl;
+      if(td===1&&c[i]<fl) td=-1; else if(td===-1&&c[i]>fu) td=1; }
+    st.push(td===1?fl:fu); dir.push(td);
+  }
+  let o=0; const obv=c.map((x,i)=>{ if(i) o+=Math.sign(x-c[i-1])*v[i]; return o }), obve=ema(obv,20);
+  const score=c.map((x,i)=>
+    (e20[i]>e50[i]?1:-1) + (x>e200[i]?1:-1) + (mh[i]>0?1:-1) + dir[i] +
+    (adx[i]>20?(pdi[i]>mdi[i]?1:-1):0) + (rsi[i]>55?1:rsi[i]<45?-1:0) +
+    (bbm[i]!=null?(x>bbm[i]?1:-1):0) + (hasVol?(obv[i]>obve[i]?1:-1):0));
+  const don = [], reg = [0,0,0], LB = [20,50,100];
+  for(let i=0;i<n;i++){
+    LB.forEach((L,k) => { if(i>=L){ let hh=-1e99, ll=1e99;
+      for(let j=i-L;j<i;j++){ hh=Math.max(hh,d[j].high); ll=Math.min(ll,d[j].low) }
+      if(c[i]>hh) reg[k]=1; else if(c[i]<ll) reg[k]=-1; } });
+    don.push((reg[0]+reg[1]+reg[2])/3);
+  }
+  const scoreB = score.map((x,i)=>x+don[i]);
+  const ED = Object.keys(MACRO.etf).sort(), FK = Object.keys(MACRO.fng).sort(), memo = {};
+  const lt = (a,D) => { let lo=0, hi=a.length; while(lo<hi){ const m=(lo+hi)>>1; if(a[m]<D) lo=m+1; else hi=m; } return lo; };
+  const macroAt = t => { const D = new Date(t*1000).toISOString().slice(0,10); if(memo[D]) return memo[D];
+    const k = lt(ED,D), s5 = ED.slice(Math.max(0,k-5),k).reduce((a,x)=>a+MACRO.etf[x],0), f = lt(FK,D)-1;
+    return memo[D] = {etf: k<5 ? 0 : s5>5e8 ? 1 : s5>0 ? 0.5 : s5<-5e8 ? -1 : -0.5, fng: f>=0 ? MACRO.fng[FK[f]] : 50}; };
+  const mac = d.map(x => isStock ? {etf:0,fng:50} : macroAt(x.time));
+  const scoreC = scoreB.map((x,i) => x + mac[i].etf), blockC = mac.map(m => m.fng >= 80);
+  return {e20,e50,e200,bbu,bbl,rsi,macd,sg,mh,atr,adx,st,dir,score,scoreB,scoreC,blockC};
+}
+
+function backtest(d, r, S=STRAT, P={}){
+  const B_ = S!=='A', sc = S==='C' ? r.scoreC : B_ ? r.scoreB : r.score, thr = P.thr ?? (B_?6:5), adxMin = P.adx ?? 20, K = P.k ?? (B_?3:2), SLIP = ASSET_SLIP;
+  const T_ = [], marks = [], log = [], from = P.from ?? 50, to = Math.min(P.to ?? d.length-1, d.length-1);
+  let pos = null, pend = null, pa = 0;
+  const close = (x, px, why) => { const p1 = px*(1-SLIP), pct = p1/pos.px-1-2*FEE, txt = why+' '+(pct>=0?'+':'')+(pct*100).toFixed(1)+'%';
+    T_.push({pct,why,t0:pos.t,t1:x.time,p0:pos.px,p1}); marks.push({time:x.time,position:'aboveBar',color:'#ff1744',shape:'arrowDown',text:txt});
+    log.push({up:false,p:p1,t:x.time,txt}); pos = null; };
+  for(let i=from;i<to;i++){
+    const x = d[i];
+    if(pend==='buy' && !pos){ const px = x.open*(1+SLIP);   // achat à l'ouverture de la bougie suivante, avec glissement
+      pos = {px,t:x.time,hh:px,sl:px-K*pa,tp:B_?null:px+3*pa};
+      marks.push({time:x.time,position:'belowBar',color:'#00e676',shape:'arrowUp',text:'ACHAT'}); log.push({up:true,p:px,t:x.time,txt:'ACHAT'}); }
+    else if(pend==='sell' && pos) close(x, x.open, 'VENTE');
+    pend = null;
+    if(pos){ if(x.low<=pos.sl) close(x, Math.min(x.open,pos.sl), 'STOP');          // stop testé sur le plus bas de la bougie
+             else if(pos.tp && x.high>=pos.tp) close(x, Math.max(x.open,pos.tp), 'OBJECTIF'); }
+    if(!pos){ if(sc[i]>=thr && r.adx[i]>adxMin && !(S==='C' && r.blockC[i])){ pend = 'buy'; pa = r.atr[i]; } }
+    else if(sc[i]<=-1 || r.dir[i]<0) pend = 'sell';
+    else if(B_){ pos.hh = Math.max(pos.hh,x.close); pos.sl = Math.max(pos.sl, pos.hh-K*r.atr[i]); }   // stop suiveur
+  }
+  return {T:T_,marks,log,pos,next:pend};
+}
+const sumT = T => { const g = T.filter(t=>t.pct>0).reduce((a,t)=>a+t.pct,0), l = -T.filter(t=>t.pct<=0).reduce((a,t)=>a+t.pct,0);
+  return {n:T.length, res:T.reduce((a,t)=>a*(1+t.pct),1)-1, pf:l?g/l:(g?99:0)}; };
+function walkForward(){
+  const out = $('wfOut'), n = data.length; if(n < 200){ out.textContent = 'Pas assez de bougies chargées.'; return; }
+  const r = compute(data), cut = Math.floor(50+(n-51)*0.6), R = [];
+  for(const thr of [4,5,6,7,8]) for(const adx of [15,20,25,30]) for(const k of [2,3,4]){
+    const tr = sumT(backtest(data,r,STRAT,{thr,adx,k,from:50,to:cut}).T), te = sumT(backtest(data,r,STRAT,{thr,adx,k,from:cut,to:n-1}).T);
+    R.push({thr,adx,k,tr,te}); }
+  const def = STRAT==='A' ? {thr:5,adx:20,k:2} : {thr:6,adx:20,k:3}, d0 = R.find(x => x.thr===def.thr && x.adx===def.adx && x.k===def.k);
+  const top = R.filter(x => x.tr.n>=4).sort((a,b) => b.tr.res-a.tr.res).slice(0,10);
+  const med = top.length ? top.map(x => x.te.res).sort((a,b) => a-b)[Math.floor(top.length/2)] : null;
+  const pc = x => `<b class="${x>=0?'b':'s'}">${x>=0?'+':''}${(x*100).toFixed(1)}%</b>`;
+  const ok = top.length && top[0].te.res > 0 && med > 0;
+  out.innerHTML = `<div>Réglages actuels : apprentissage ${pc(d0.tr.res)} (${d0.tr.n}) → <b>jamais vu ${pc(d0.te.res)} (${d0.te.n})</b></div>
+    ${top.length ? `<div>Meilleurs réglages trouvés (seuil ${top[0].thr}, ADX ${top[0].adx}, stop ${top[0].k}×ATR) : ${pc(top[0].tr.res)} → <b>jamais vu ${pc(top[0].te.res)}</b></div>
+    <div>Médiane des 10 meilleurs sur données jamais vues : ${pc(med)}</div>` : '<div>Trop peu de trades pour optimiser.</div>'}
+    <div style="margin-top:6px"><b>${ok ? '🟢 Les gains tiennent sur des données jamais vues.' : '🔴 Pas d\'avantage fiable : les gains passés ne se confirment pas.'}</b></div>
+    <div class="mut" style="margin-top:4px">60 % de l'historique sert à choisir, les 40 % suivants jugent. Si ça se confirme sur plusieurs actifs et intervalles, c'est un bon signe ; un seul test ne prouve rien.</div>`;
+}
+
+let data = [], fibLines = [], ws = null, demoTimer = null, sym = 'BTC/EUR', iv = '4h', KMIN = {'1m':1,'5m':5,'15m':15,'1h':60,'4h':240,'1d':1440};
+
+function renderTrades(B, n){
+  const pc = x => (x>=0?'+':'')+(x*100).toFixed(1)+'%';
+  const dt = t => new Date(t*1000).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+  const dur = x => x<3600 ? Math.max(1,Math.round(x/60))+' min' : x<172800 ? Math.round(x/3600)+' h' : Math.round(x/86400)+' j';
+  const WH = {STOP:['🛑','Stop touché'],OBJECTIF:['🎯','Objectif atteint'],VENTE:['↩️','Tendance retournée']};
+  let eq = 1; const pts = [1]; B.T.forEach(t => { eq *= 1+t.pct; pts.push(eq); });
+  const wins = B.T.filter(t=>t.pct>0).length, all = B.T.map(t=>t.pct);
+  const mx = Math.max(...pts), mn = Math.min(...pts), rg = (mx-mn) || 0.01;
+  const X = i => pts.length>1 ? 10+i/(pts.length-1)*580 : 10, Y = v => 110-(v-mn)/rg*100;
+  const col = eq>=1 ? '#00e676' : '#ff1744';
+  const svg = `<svg viewBox="0 0 600 120" preserveAspectRatio="none" style="width:100%;height:120px;background:var(--card);border-radius:8px;margin-bottom:12px">
+    <line x1="10" x2="590" y1="${Y(1)}" y2="${Y(1)}" stroke="#555" stroke-dasharray="4"/>
+    <polyline points="${pts.map((v,i)=>X(i).toFixed(1)+','+Y(v).toFixed(1)).join(' ')}" fill="none" stroke="${col}" stroke-width="2.5"/></svg>`;
+  const chip = (l,v,c) => `<div class="chip"><div class="mut">${l}</div><div class="big" style="color:${c||'var(--tx)'}">${v}</div></div>`;
+  let h = `<div class="chips">${chip('Trades',B.T.length)}${chip('Réussite',B.T.length?Math.round(wins/B.T.length*100)+'%':'—')}
+    ${chip('Résultat',pc(eq-1),eq>=1?'var(--g)':'var(--r)')}${chip('Meilleur',all.length?pc(Math.max(...all)):'—','var(--g)')}${chip('Pire',all.length?pc(Math.min(...all)):'—','var(--r)')}</div>`;
+  h += `<div class="mut" style="margin-bottom:6px">Évolution de ton capital trade après trade</div>` + svg;
+  if(B.pos){
+    const last = data[n-1].close, pnl = last/B.pos.px-1, k = Math.min(1,Math.max(0,(last-B.pos.sl)/((B.pos.tp||B.pos.px+2*(B.pos.px-B.pos.sl)+1e-9)-B.pos.sl)))*100;
+    h += `<div class="tr" style="border-left:4px solid #ffd54f"><div class="tl"><div style="font-size:20px;font-weight:700;color:${pnl>=0?'var(--g)':'var(--r)'}">${pc(pnl)}</div><div class="mut">🟡 EN COURS</div></div>
+      <div class="tm"><div>Acheté à <b>${fmt(B.pos.px)}</b> · maintenant <b>${fmt(last)}</b></div><div class="mut">depuis ${dt(B.pos.t)} · ${dur(data[n-1].time-B.pos.t)}</div>
+      <div style="position:relative;height:8px;border-radius:4px;margin-top:8px;background:linear-gradient(90deg,var(--r),#444,var(--g))"><div style="position:absolute;top:-3px;left:${k}%;width:14px;height:14px;border-radius:50%;background:#fff;transform:translateX(-50%)"></div></div>
+      <div style="display:flex;justify-content:space-between" class="mut"><span>🛑 ${fmt(B.pos.sl)}</span><span>${B.pos.tp?'🎯 '+fmt(B.pos.tp):'stop suiveur ↗'}</span></div></div></div>`;
+  }
+  const mxA = Math.max(...all.map(Math.abs), 0.001);
+  h += B.T.length ? B.T.slice().reverse().map(t => { const g = t.pct>=0, c = g?'var(--g)':'var(--r)', w = WH[t.why];
+    return `<div class="tr" style="border-left:4px solid ${c}"><div class="tl"><div style="font-size:20px;font-weight:700;color:${c}">${pc(t.pct)}</div><div class="mut">${w[0]} ${w[1]}</div></div>
+      <div class="tm"><div><span class="b">▲ ${fmt(t.p0)}</span> → <span class="s">▼ ${fmt(t.p1)}</span></div><div class="mut">${dt(t.t0)} · durée ${dur(t.t1-t.t0)}</div>
+      <div style="height:5px;background:#0b0e14;border-radius:3px;margin-top:6px"><div style="height:100%;width:${Math.max(4,Math.abs(t.pct)/mxA*100)}%;background:${c};border-radius:3px"></div></div></div></div>`; }).join('')
+    : '<div class="mut" style="padding:20px;text-align:center">Aucun trade terminé pour l\'instant. Le bot attend un signal.</div>';
+  $('tradesView').innerHTML = h; $('tc').textContent = B.T.length ? '(' + B.T.length + ')' : '';
+}
+const esc = x => String(x).replace(/&amp;/g,'&').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const link = (u,t) => `<a href="${u}" target="_blank" rel="noopener" style="color:#4aa3ff">${t}</a>`;
+const fail = u => `<span class="mut">Non disponible ici : ton navigateur bloque cette source, ou sa limite gratuite est atteinte. Ça n'influence pas le score. ${link(u,'Voir directement sur le site')}</span>`;
+const CRYPTO_T = new Set(['COIN','MSTR','IBIT','MARA','RIOT','HOOD','CLSK','GBTC','FBTC','ETHA','BITO','CRCL']);
+
+const SM = {tr:[], wh:[], ws:null, tok:0, fund:null, etf:null, fng:null};
+let lastMarks = [], lastPos = null, smT = 0, stockTimer = null, lastRoute = '';
+const clamp = (x,a=-1,b=1) => Math.max(a,Math.min(b,x));
+const eurf = x => Math.round(x).toLocaleString('fr-FR') + ' €';
+const getKey = () => { try{ return localStorage.getItem('sosoKey') || ''; }catch(e){ return ''; } };
+
+function applyMarks(){
+  const sec = SECS[iv], t0 = data.length ? data[0].time : 0;
+  const w = SM.wh.slice(-30).map(x => ({time:Math.floor(x.t/sec)*sec, position:'inBar', color:x.side==='buy'?'#00e5ff':'#ff9100', shape:'circle', text:'🐋 '+x.qty.toFixed(2)}))
+    .filter(m => m.time >= t0);
+  candles.setMarkers(lastMarks.concat(w).sort((a,b) => a.time-b.time));
+}
+function stopTrades(){ SM.tok++; if(SM.ws){ SM.ws.onclose = null; SM.ws.close(); SM.ws = null; } }
+function startTrades(){
+  stopTrades(); SM.tr = []; SM.wh = []; const tok = SM.tok, ws = SM.ws = new WebSocket('wss://ws.kraken.com/v2');
+  ws.onopen = () => ws.send(JSON.stringify({method:'subscribe',params:{channel:'trade',symbol:[sym],snapshot:true}}));
+  ws.onclose = () => { if(tok === SM.tok) setTimeout(() => tok === SM.tok && startTrades(), 3000); };
+  ws.onmessage = e => { const m = JSON.parse(e.data); if(m.channel !== 'trade' || !m.data) return; let hit = false;
+    m.data.forEach(x => { const eur = x.qty*x.price; SM.tr.push({t:Date.parse(x.timestamp)/1000, side:x.side, eur, qty:x.qty});
+      if(SM.tr.length > 3000) SM.tr.shift();
+      if(m.type === 'update' && SM.tr.length >= 100){ const v = SM.tr.slice(-500).map(y => y.eur).sort((a,b) => a-b),
+        thr = Math.max(v[Math.floor(v.length*0.99)], 3*v.reduce((a,b) => a+b, 0)/v.length);
+        if(eur >= thr){ SM.wh.push({t:Date.parse(x.timestamp)/1000, side:x.side, eur, qty:x.qty}); hit = true; } } });
+    if(hit) applyMarks(); if(Date.now()-smT > 1000){ smT = Date.now(); renderSM(); } };
+}
+
+function smScore(){
+  const now = Date.now()/1000, C = [], add = (label,w,v,txt,tag) => C.push({label,w,v,txt,tag});
+  add('Flux ETF Bitcoin (5 jours)', 30, SM.etf ? SM.etf.v : null, SM.etf ? SM.etf.txt : 'saisis ta clé SoSoValue', 'TESTABLE');
+  add('Peur & Avidité', 15, SM.fng ? SM.fng.v : null, SM.fng ? SM.fng.txt : 'chargement…', 'TESTABLE');
+  add('Funding (foule des marchés à terme)', 15, SM.fund ? SM.fund.v : null, SM.fund ? SM.fund.txt : 'indisponible', 'LIVE');
+  const t15 = SM.tr.filter(x => x.t > now-900), b = t15.filter(x => x.side==='buy').reduce((a,x) => a+x.eur, 0), tot = t15.reduce((a,x) => a+x.eur, 0);
+  add('Flux d\'ordres Kraken (15 min)', 20, t15.length >= 20 && tot ? clamp((b/tot-0.5)*4) : null, t15.length >= 20 && tot ? Math.round(b/tot*100)+'% d\'achats agressifs' : 'collecte en cours…', 'LIVE');
+  const w30 = SM.wh.filter(x => x.t > now-1800), wb = w30.filter(x => x.side==='buy').reduce((a,x) => a+x.eur, 0), wt = w30.reduce((a,x) => a+x.eur, 0);
+  add('Baleines Kraken (30 min)', 20, wt ? clamp((2*wb-wt)/wt) : null, wt ? w30.length+' gros ordres · net '+eurf(2*wb-wt) : 'aucune baleine détectée', 'LIVE');
+  const ok = C.filter(c => c.v != null), W = ok.reduce((a,c) => a+c.w, 0);
+  return {score: W ? Math.round(ok.reduce((a,c) => a+c.w*c.v, 0)/W*100) : 0, C};
+}
+
+function renderSM(){
+  if(isStock){ $('smBadge').textContent = '🧠 n/a'; $('smBadge').style.color = 'var(--tx)';
+    if($('smBot')) $('smBot').innerHTML = 'Non applicable aux actions : ETF Bitcoin, funding et flux Kraken concernent la crypto. Repasse sur BTC/EUR pour voir le score.'; return; }
+  const r = smScore(), sc = r.score, col = sc>=15 ? 'var(--g)' : sc<=-15 ? 'var(--r)' : 'var(--tx)';
+  $('smBadge').textContent = '🧠 ' + (sc>0?'+':'') + sc; $('smBadge').style.color = col;
+  if(!$('smNeedle')) return;
+  $('smNeedle').style.transform = `rotate(${sc*0.9}deg)`; $('smScore').textContent = (sc>0?'+':'') + sc; $('smScore').style.color = col;
+  $('smVerdict').textContent = sc>=40 ? 'Accumulation 🟢' : sc>=15 ? 'Plutôt acheteuse' : sc>-15 ? 'Neutre ⚪' : sc>-40 ? 'Plutôt vendeuse' : 'Distribution 🔴';
+  $('smComps').innerHTML = r.C.map(c => `<div style="margin:10px 0"><div style="display:flex;justify-content:space-between;gap:8px"><span>${c.label} <span class="mut" style="font-size:10px;border:1px solid #333;border-radius:8px;padding:0 5px">${c.tag}</span></span><span class="mut">${esc(c.txt)}</span></div>
+    <div style="position:relative;height:8px;background:#0b0e14;border-radius:4px;margin-top:4px"><div style="position:absolute;left:50%;width:1px;height:8px;background:#555"></div>${c.v==null ? '' : `<div style="position:absolute;top:0;height:8px;border-radius:4px;background:${c.v>=0?'var(--g)':'var(--r)'};${c.v>=0?'left:50%':'right:50%'};width:${Math.abs(c.v)*50}%"></div>`}</div></div>`).join('');
+  const nE = Object.keys(MACRO.etf).length, nF = Object.keys(MACRO.fng).length;
+  $('smBot').innerHTML = `<div>${lastPos ? (sc<=-35 ? '⚠️ <b class="s">Le bot est en position mais la smart money est vendeuse</b> : resserre ton stop ou sors.' : '✅ Position cohérente avec la smart money.') : (sc>=35 ? '👀 <b class="b">Smart money acheteuse</b> : surveille le prochain signal du bot.' : 'Pas de position ouverte : le bot attend son signal.')}</div>
+    <div class="mut" style="margin-top:8px"><b>Stratégie C</b> = stratégie B + vote des flux ETF (${nE} jours chargés) + filtre anti-euphorie (aucun achat si Peur & Avidité ≥ 80 ; ${nF} jours chargés). ${STRAT==='C' ? 'Elle est active sur ton graphique.' : 'Choisis « Stratégie C » en haut pour l\'activer.'} Elle se compare aux autres dans « Comparer tous les intervalles ». Les composantes LIVE ne peuvent pas être testées sur le passé : elles servent d'alerte, pas de règle automatique.</div>`;
+  const wl = SM.wh.slice(-8).reverse(), nw = Math.round(Date.now()/1000);
+  $('sKw').innerHTML = wl.length ? wl.map(x => `<div class="sig"><span class="${x.side==='buy'?'b':'s'}">${x.side==='buy'?'▲ ACHAT':'▼ VENTE'} <b>${x.qty.toFixed(3)}</b></span><span class="mut">${eurf(x.eur)} · il y a ${Math.max(0,nw-Math.round(x.t))} s</span></div>`).join('') : '<span class="mut">En attente d\'un gros ordre sur Kraken (les bulles 🐋 apparaissent aussi sur le graphique)…</span>';
+}
+
+async function loadFunding(){
+  const base = sym.split('/')[0].replace('XBT','BTC'); let ann = null, src = '';
+  try{ const j = await (await fetch(`https://www.okx.com/api/v5/public/funding-rate?instId=${base}-USDT-SWAP`)).json(); ann = +j.data[0].fundingRate*3*365*100; src = 'OKX'; }catch(e){}
+  if(ann == null || isNaN(ann)){ try{ const j = await (await fetch('https://api.hyperliquid.xyz/info',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({type:'metaAndAssetCtxs'})})).json();
+    ann = +j[1][j[0].universe.findIndex(u => u.name===base)].funding*24*365*100; src = 'Hyperliquid'; }catch(e){} }
+  SM.fund = (ann == null || isNaN(ann)) ? null : {v: ann>40 ? -1 : ann>15 ? -0.5 : ann<-5 ? 0.7 : ann<0 ? 0.3 : 0, txt: ann.toFixed(1)+'% par an ('+src+')'};
+  renderSM();
+}
+
+async function loadETF(){
+  const key = getKey(), st = $('sosoSt'); if(!key){ SM.etf = null; return; }
+  try{ let rows = null;
+    try{ const c = JSON.parse(localStorage.getItem('etfCache') || 'null'); if(c && Date.now()-c.t < 18e5) rows = c.rows; }catch(e){}
+    if(!rows){ const r = await fetch('https://openapi.sosovalue.com/openapi/v1/etfs/summary-history?symbol=BTC&country_code=US&limit=300',{headers:{'x-soso-api-key':key}});
+      const j = await r.json(); rows = Array.isArray(j) ? j : (j.data || []);
+      if(!rows.length) throw new Error(j.message || 'réponse vide');
+      try{ localStorage.setItem('etfCache', JSON.stringify({t:Date.now(), rows})); }catch(e){} }
+    MACRO.etf = {}; rows.forEach(x => MACRO.etf[x.date] = +x.total_net_inflow);
+    const days = Object.keys(MACRO.etf).sort(), s5 = days.slice(-5).reduce((a,k) => a+MACRO.etf[k], 0);
+    SM.etf = {v: s5>5e8 ? 1 : s5>0 ? 0.5 : s5<-5e8 ? -1 : -0.5, txt: (s5>=0?'+':'')+(s5/1e6).toFixed(0)+' M$ sur 5 jours', days: days.map(k => [k, MACRO.etf[k]])};
+    if(st) st.textContent = '✅ clé OK · '+days.length+' jours de flux'; drawETF();
+  }catch(e){ SM.etf = null; if(st) st.textContent = '❌ '+e.message+' (clé invalide, limite atteinte ou appel bloqué par le navigateur)'; }
+}
+function drawETF(){
+  const el = $('sEtf'); if(!el || !SM.etf) return; const d = SM.etf.days.slice(-25), mx = Math.max(...d.map(x => Math.abs(x[1])), 1);
+  el.innerHTML = `<svg viewBox="0 0 ${d.length*14} 100" preserveAspectRatio="none" style="width:100%;height:120px">` + d.map((x,i) => { const h = Math.abs(x[1])/mx*46;
+    return `<rect x="${i*14+2}" y="${x[1]>=0 ? 50-h : 50}" width="10" height="${h}" fill="${x[1]>=0?'#26a69a':'#ef5350'}"><title>${x[0]} : ${(x[1]/1e6).toFixed(0)} M$</title></rect>`; }).join('') +
+    `<line x1="0" x2="${d.length*14}" y1="50" y2="50" stroke="#555"/></svg><div class="mut">25 derniers jours de bourse : flux net des ETF Bitcoin américains (IBIT, FBTC…). Survole une barre pour le détail.</div>`;
+}
+async function loadTreasury(){
+  const el = $('sTre'), key = getKey(); if(!el) return;
+  if(!key){ el.innerHTML = '<span class="mut">Saisis ta clé SoSoValue ci-dessus pour voir les achats de Bitcoin des entreprises cotées.</span>'; return; }
+  const H = {headers:{'x-soso-api-key':key}}, base = 'https://openapi.sosovalue.com/openapi/v1/btc-treasuries';
+  try{
+    const L = await (await fetch(base, H)).json(), list = Array.isArray(L) ? L : (L.data || []);
+    if(!list.length) throw new Error(L.message || 'liste vide');
+    const nm = {}; list.forEach(x => nm[x.ticker] = x.name);
+    const tk = ['MSTR'].concat(list.map(x => x.ticker).filter(t => t !== 'MSTR')).slice(0,14);
+    const res = await Promise.allSettled(tk.map(t => fetch(`${base}/${encodeURIComponent(t)}/purchase-history?limit=2`, H).then(r => { if(!r.ok) throw 0; return r.json(); })));
+    const rows = res.flatMap(r => r.status==='fulfilled' && Array.isArray(r.value) ? r.value : []).filter(x => +x.btc_acq > 0)
+      .sort((a,b) => String(b.date).localeCompare(String(a.date))).slice(0,8);
+    el.innerHTML = rows.length ? rows.map(x => `<div class="sig"><span><b>${esc(nm[x.ticker] || x.ticker)}</b> <span class="b">+${(+x.btc_acq).toLocaleString('fr-FR')} BTC</span></span><span class="mut">${esc(x.date)} · détient ${(+x.btc_holding).toLocaleString('fr-FR')} BTC</span></div>`).join('') +
+      `<div class="mut" style="margin-top:6px">Derniers achats de Bitcoin par des entreprises cotées (${list.length} suivies). Publiés après coup.</div>`
+      : `<span class="mut">${list.length} entreprises suivies, mais SoSoValue n'a renvoyé aucun achat récent.</span>`;
+  }catch(e){ el.innerHTML = `<span class="mut">Non disponible : ${esc(e.message || 'appel bloqué par le navigateur')}.</span>`; }
+}
+async function fetchStock(sym, ivk){
+  const tk = sym.includes('.') ? sym : sym + '.PA';
+  const M = {'1m':['1m','5d'],'5m':['5m','1mo'],'15m':['15m','1mo'],'1h':['60m','1y'],'4h':['60m','1y'],'1d':['1d','5y']}[ivk];
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(tk)}?interval=${M[0]}&range=${M[1]}`;
+  let j = null; const why = [], tmo = () => (window.AbortSignal && AbortSignal.timeout) ? {signal:AbortSignal.timeout(8000)} : {};
+  const enc = encodeURIComponent(url), names = ['relais local'], tries = ['http://localhost:8787/?url='+enc]; let rl = '';
+  try{ rl = localStorage.getItem('relayUrl') || ''; }catch(e){}
+  if(rl){ names.push('ton relais en ligne'); tries.push(rl+(rl.includes('?')?'&':'?')+'url='+enc); }
+  names.push('direct','relais public 1','relais public 2'); tries.push(url,'https://corsproxy.io/?'+enc,'https://api.allorigins.win/raw?url='+enc);
+  for(let i=0;i<tries.length && !j;i++){
+    try{ const r = await fetch(tries[i], tmo()); if(!r.ok){ why.push(names[i]+' : erreur '+r.status); continue; }
+      const q = await r.json(); if(q.chart && q.chart.result){ j = q; lastRoute = names[i]; } else why.push(names[i]+' : aucune donnée'); }
+    catch(e){ why.push(names[i]+' : injoignable'); }
+  }
+  if(!j) throw new Error('Yahoo inaccessible ('+why.join(' · ')+')');
+  const R = j.chart.result[0], q = R.indicators.quote[0]; let rows = [];
+  R.timestamp.forEach((ts,i) => { if(q.close[i] != null && q.open[i] != null) rows.push({time:ts,open:q.open[i],high:q.high[i],low:q.low[i],close:q.close[i],volume:q.volume[i]||0}); });
+  if(ivk === '4h'){ const g = {}, out = [];   // 4h = 4 bougies d'1h regroupées, jour par jour
+    rows.forEach(b => { const day = new Date(b.time*1000).toISOString().slice(0,10); (g[day] = g[day] || []).push(b); });
+    Object.keys(g).sort().forEach(day => { const a = g[day]; for(let i=0;i<a.length;i+=4){ const c = a.slice(i,i+4);
+      out.push({time:c[0].time,open:c[0].open,high:Math.max(...c.map(x=>x.high)),low:Math.min(...c.map(x=>x.low)),close:c[c.length-1].close,volume:c.reduce((t,x)=>t+x.volume,0)}); } });
+    rows = out; }
+  return rows;
+}
+async function pollStock(){ try{ const rows = await fetchStock(sym, iv); rows.slice(-3).forEach(b => { if(b.time >= data[data.length-1].time) push(b); }); }catch(e){} }
+async function fetchKraken(pair, k){
+  const j = await (await fetch(`https://api.kraken.com/0/public/OHLC?pair=${pair}&interval=${KMIN[k]}`)).json(); if(j.error && j.error.length) throw 0;
+  return j.result[Object.keys(j.result).find(x => x !== 'last')].map(q => ({time:q[0],open:+q[1],high:+q[2],low:+q[3],close:+q[4],volume:+q[6]}));
+}
+function parseCSV(txt){
+  const L = txt.trim().split(/\r?\n/), sep = L[0].includes(';') ? ';' : ',', H = L[0].split(sep).map(x => x.trim().toLowerCase().replace(/"/g,''));
+  const ix = (...n) => H.findIndex(h => n.some(k => h.includes(k)));
+  const c = {D:ix('date','time'), O:ix('open','ouv'), H:ix('high','haut'), L:ix('low','bas'), C:ix('close','clôt','clot','dernier'), V:ix('vol')};
+  if([c.D,c.O,c.H,c.L,c.C].some(v => v < 0)) throw new Error('colonnes Date, Open, High, Low, Close introuvables');
+  const num = x => parseFloat(String(x).replace(/["\s]/g,'').replace(',','.')), seen = new Set(), rows = [];
+  L.slice(1).forEach(l => { const a = l.split(sep), raw = a[c.D].replace(/"/g,'').trim(); let t = Date.parse(raw);
+    const m = raw.match(/^(\d{2})[\/.-](\d{2})[\/.-](\d{4})/); if(m) t = Date.parse(`${m[3]}-${m[2]}-${m[1]}`);
+    const b = {time:Math.floor(t/1000),open:num(a[c.O]),high:num(a[c.H]),low:num(a[c.L]),close:num(a[c.C]),volume:c.V>=0 ? (num(a[c.V])||0) : 0};
+    if(isFinite(b.time) && [b.open,b.high,b.low,b.close].every(isFinite) && !seen.has(b.time)){ seen.add(b.time); rows.push(b); } });
+  return rows.sort((a,b) => a.time-b.time);
+}
+$('csvBtn').onclick = () => $('csv').click();
+$('relayBtn').onclick = () => { let cur = ''; try{ cur = localStorage.getItem('relayUrl') || ''; }catch(e){}
+  const v = prompt('Adresse de ton relais en ligne (Cloudflare Workers), ou laisse vide pour l\'effacer :', cur);
+  if(v !== null){ try{ v.trim() ? localStorage.setItem('relayUrl', v.trim()) : localStorage.removeItem('relayUrl'); }catch(e){} $('status').textContent = v.trim() ? '🔌 Relais enregistré' : '🔌 Relais effacé'; } };
+$('csv').onchange = async e => { const f = e.target.files[0]; if(!f) return;
+  try{ const rows = parseCSV(await f.text()); if(rows.length < 120) throw new Error('il faut au moins 120 bougies'); stop(); isStock = true; FEE = 0.002; ASSET_SLIP = 0.004; SM.tr = []; SM.wh = [];
+    const gaps = rows.slice(1).map((b,i) => b.time-rows[i].time).sort((a,b) => a-b), med = gaps[Math.floor(gaps.length/2)];
+    iv = Object.keys(SECS).reduce((a,k) => Math.abs(SECS[k]-med) < Math.abs(SECS[a]-med) ? k : a, '1d'); $('iv').value = iv; data = rows; sym = f.name;
+    candles.setData(data); refresh(); showLast(); $('status').textContent = '📂 CSV importé : '+rows.length+' bougies ('+iv+')'; renderSM();
+  }catch(err){ $('status').textContent = '❌ CSV : '+err.message; } e.target.value = ''; };
+document.querySelectorAll('.asset').forEach(b => b.onclick = () => { $('sym').value = b.dataset.s; load(); });
+
+async function loadMacro(){
+  try{ const j = await (await fetch('https://api.alternative.me/fng/?limit=0')).json(); MACRO.fng = {};
+    j.data.forEach(x => MACRO.fng[new Date(x.timestamp*1000).toISOString().slice(0,10)] = +x.value);
+    const v = +j.data[0].value; SM.fng = {v: v>=80 ? -1 : v>=65 ? -0.4 : v<=20 ? 0.6 : v<=35 ? 0.3 : 0, txt: v+' · '+j.data[0].value_classification}; }catch(e){}
+  await loadETF(); loadFunding(); loadTreasury(); if(data.length) refresh(); renderSM();
+}
+
+async function loadWhales(){
+  const el = $('sWh'); if(!el) return;
+  try{
+    const [tx, pr] = await Promise.all([
+      fetch('https://blockchain.info/unconfirmed-transactions?format=json&cors=true').then(r=>r.json()),
+      fetch('https://api.kraken.com/0/public/Ticker?pair=XBTEUR').then(r=>r.json()).catch(()=>null)]);
+    const price = pr && pr.result ? +Object.values(pr.result)[0].c[0] : null;
+    const top = (tx.txs||[]).map(t=>({h:t.hash,time:t.time,btc:(t.out||[]).reduce((m,o)=>Math.max(m,o.value||0),0)/1e8}))
+      .sort((a,b)=>b.btc-a.btc).slice(0,10);
+    el.innerHTML = top.map(t => `<div class="sig"><span><b>${t.btc.toLocaleString('fr-FR',{maximumFractionDigits:1})} BTC</b>${price?` <span class="mut">≈ ${Math.round(t.btc*price).toLocaleString('fr-FR')} €</span>`:''}</span>
+      <span class="mut">il y a ${Math.max(0,Math.round(Date.now()/1000-t.time))} s · ${link('https://mempool.space/tx/'+esc(t.h),'voir')}</span></div>`).join('') +
+      `<div class="mut" style="margin-top:8px">Transactions pas encore confirmées, mises à jour toutes les 30 s. Impossible de savoir si c'est une baleine qui vend, un échange qui déplace ses fonds ou un simple changement de portefeuille : à lire comme du contexte.</div>`;
+  }catch(e){ el.innerHTML = fail('https://mempool.space'); }
+}
+
+async function loadCongress(){
+  const el = $('sCg'); let rows = null;
+  try{
+    try{ const c = JSON.parse(localStorage.getItem('cgCache')||'null'); if(c && Date.now()-c.t < 3600e3) rows = c.rows; }catch(e){}
+    if(!rows){ rows = (await (await fetch('https://www.bargo.ai/free-apis/congress/v1/trades')).json()).trades;
+      try{ localStorage.setItem('cgCache', JSON.stringify({t:Date.now(),rows})); }catch(e){} }
+    const seen = new Set(); rows = rows.filter(r => { const k=[r.member,r.ticker,r.type,r.transaction_date,r.amount_range].join('|'); if(seen.has(k)) return false; seen.add(k); return true; });
+    const top = ty => { const m={}; rows.filter(r=>r.type===ty).forEach(r => (m[r.ticker]=m[r.ticker]||new Set()).add(r.member));
+      return Object.entries(m).map(([t,v])=>[t,v.size]).sort((a,b)=>b[1]-a[1]).slice(0,6); };
+    const chips = (a,c) => a.map(([t,n]) => `<span style="display:inline-block;background:#0b0e14;border:1px solid ${c};color:${c};border-radius:12px;padding:2px 9px;margin:2px">${esc(t)}${CRYPTO_T.has(t)?' ₿':''} ×${n}</span>`).join('') || '<span class="mut">—</span>';
+    const delay = r => Math.round((new Date(r.disclosure_date)-new Date(r.transaction_date))/864e5);
+    el.innerHTML = `<div class="mut">Achetés par le plus d'élus différents</div>${chips(top('purchase'),'#00e676')}
+      <div class="mut" style="margin-top:6px">Vendus par le plus d'élus différents</div>${chips(top('sale'),'#ff1744')}
+      <div style="margin-top:10px">` + rows.slice(0,25).map(r => { const b = r.type==='purchase'?['▲ ACHAT','b']:r.type==='sale'?['▼ VENTE','s']:['⇄ '+esc(r.type).toUpperCase(),'mut'];
+        return `<div class="sig"><span><span class="${b[1]}">${b[0]}</span> <b>${esc(r.ticker)}</b>${CRYPTO_T.has(r.ticker)?' ₿':''} <span class="mut">${esc(r.member)} (${esc(r.chamber)})</span></span>
+        <span class="mut">${esc(r.amount_range)} · déclaré après ${delay(r)} j</span></div>`; }).join('') + `</div>
+      <div class="mut" style="margin-top:8px">Les élus ont jusqu'à 45 jours pour déclarer : tu vois ces achats avec du retard, et les montants sont des fourchettes. Source gratuite (Bargo), limitée à 100 lignes par jour, rafraîchie au plus une fois par heure. ${link('https://www.capitoltrades.com','Capitol Trades')}</div>`;
+  }catch(e){ el.innerHTML = fail('https://www.capitoltrades.com'); }
+}
+
+function renderInst(){
+  const L = [['BlackRock : dépôts 13F (SEC)','https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=1364742&type=13F','Positions des grands fonds, déclarées jusqu\'à 45 jours après la fin de chaque trimestre.'],
+    ['Flux des ETF Bitcoin (IBIT, FBTC…)','https://farside.co.uk/btc/','Entrées et sorties quotidiennes, publiées après la clôture américaine.'],
+    ['Flux ETF détaillés (Glassnode)','https://studio.glassnode.com/charts/institutions.UsSpotEtfFlowsAll','Estimation des flux nets des ETF Bitcoin et Ether américains.'],
+    ['Achats des dirigeants (Form 4)','http://openinsider.com','Les dirigeants doivent déclarer leurs opérations sous 2 jours ouvrés.'],
+    ['Baleines en direct (Whale Alert)','https://whale-alert.io','Gros transferts crypto repérés sur plusieurs blockchains.']];
+  $('sIn').innerHTML = L.map(([t,u,d]) => `<div class="sig" style="display:block"><b>${link(u,esc(t))}</b><div class="mut">${esc(d)}</div></div>`).join('') +
+    '<div class="mut" style="margin-top:8px">Je n\'ai pas trouvé de source gratuite et ouverte pour ces données qui marche directement dans une page web : ce sont donc des liens à consulter.</div>';
+}
+
+async function loadBot(){
+  const v = $('botView'), get = u => fetch(u+'?t='+Date.now()).then(r => r.ok ? r.json() : Promise.reject(r.status));
+  let S, T = [];
+  try{ S = await get('data/state.json'); try{ T = await get('data/trades.json'); }catch(e){} }
+  catch(e){ v.innerHTML = `<div class="card" style="line-height:1.6"><b>🤖 Bot 24/24</b><div class="mut" style="margin-top:8px">Pas de journal trouvé. Cet onglet lit le journal que ton bot GitHub publie : il fonctionne depuis ton site en ligne (<b>…github.io/bot-site</b>), pas depuis le fichier ouvert sur ton ordinateur. Si tu es sur le site, le bot n'a peut-être pas encore tourné : lance-le dans l'onglet Actions de GitHub.</div></div>`; return; }
+  const pc = x => `<span class="${x>=0?'b':'s'}">${x>=0?'+':''}${(x*100).toFixed(1)}%</span>`, nm = k => esc(k.replace(/\|/g,' · '));
+  const dt = t => new Date(t*1000).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+  const K = Object.keys(S).filter(k => k.includes('|')), G = {}; K.forEach(k => G[k] = {n:0,w:0,eq:1});
+  T.forEach(t => { const g = G[t.key] || (G[t.key] = {n:0,w:0,eq:1}); g.n++; g.w += t.pct>0; g.eq *= 1+t.pct; });
+  const O = K.filter(k => S[k].pos), W = {STOP:'🛑 Stop',OBJECTIF:'🎯 Objectif',VENTE:'↩️ Retournement'};
+  v.innerHTML = `<div class="mut" style="margin-bottom:10px">Dernière bougie analysée : ${K.length ? dt(Math.max(...K.map(k => S[k].last))) : '—'} · le bot se réveille toutes les 30 minutes</div>
+    <div class="card"><b>Quel intervalle est le plus rentable ?</b><table style="width:100%;border-collapse:collapse;margin-top:8px"><tr class="mut"><th style="text-align:left;padding:6px">Actif · intervalle · stratégie</th><th>Trades</th><th>Réussite</th><th>Résultat</th></tr>` +
+    Object.entries(G).sort((a,b) => b[1].eq-a[1].eq).map(([k,g]) => `<tr><td style="padding:6px">${nm(k)}</td><td style="text-align:right">${g.n}</td><td style="text-align:right">${g.n ? Math.round(g.w/g.n*100)+'%' : '—'}</td><td style="text-align:right">${pc(g.eq-1)}</td></tr>`).join('') +
+    `</table><div class="mut" style="margin-top:6px">Sous ~30 trades, le résultat n'est pas fiable. Frais et glissement inclus.</div></div>
+    <div class="card"><b>Positions ouvertes</b><div style="margin-top:8px">` + (O.length ? O.map(k => { const p = S[k].pos;
+      return `<div class="sig"><span>🟡 ${nm(k)}</span><span>acheté ${p.px.toFixed(2)} · 🛑 ${p.sl.toFixed(2)}${p.tp ? ' · 🎯 '+p.tp.toFixed(2) : ' · stop suiveur'} <span class="mut">${dt(p.t)}</span></span></div>`; }).join('') : '<span class="mut">Aucune pour l\'instant</span>') + `</div></div>
+    <div class="card"><b>Derniers trades</b><div style="margin-top:8px">` + (T.length ? T.slice(-50).reverse().map(t =>
+      `<div class="sig"><span><b>${nm(t.key)}</b> <span class="mut">${W[t.why] || esc(t.why)}</span></span><span>${t.p0.toFixed(2)} → ${t.p1.toFixed(2)} · ${pc(t.pct)} <span class="mut">${dt(t.t1)}</span></span></div>`).join('') : '<span class="mut">Aucun trade terminé. Le bot attend un signal.</span>') + '</div></div>';
+}
+
+function loadSmart(){
+  const v = $('smartView');
+  if(!v.dataset.ok){ v.dataset.ok = 1;
+    v.innerHTML = `<div class="card" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><b>🔑 Clé SoSoValue</b>
+        <input id="sosoKey" type="password" placeholder="${getKey() ? '•••••• (déjà enregistrée)' : 'colle ta clé ici'}" style="width:240px;text-transform:none"><button id="sosoSave">Enregistrer</button><span id="sosoSt" class="mut"></span></div>
+      <div class="card" style="line-height:1.6"><b>📖 Comment lire cette page</b>
+        <div class="mut" style="margin-top:6px"><b>Le gros chiffre</b> va de −100 à +100 : plus il est haut, plus l'argent « malin » (institutions, baleines, foule) pousse à l'achat ; plus il est bas, plus il pousse à la vente ; autour de 0, rien de clair.<br>
+        <b>Chaque barre</b> montre une source : verte vers la droite = favorable à la hausse, rouge vers la gauche = favorable à la baisse. « TESTABLE » = on peut vérifier sur le passé, « LIVE » = seulement en direct.<br>
+        <b>Les cartes du bas</b> (ETF, entreprises, baleines, Congrès, sources) sont du contexte pour comprendre. Si l'une dit « Non disponible », ça n'influence pas le score.</div></div>
+      <div class="card" style="text-align:center"><b>🧠 Score Smart Money</b>
+        <svg viewBox="0 0 200 112" style="width:min(340px,92%);display:block;margin:8px auto 0"><defs><linearGradient id="gg"><stop offset="0" stop-color="#ff1744"/><stop offset=".5" stop-color="#555"/><stop offset="1" stop-color="#00e676"/></linearGradient></defs>
+          <path d="M15 100 A85 85 0 0 1 185 100" fill="none" stroke="url(#gg)" stroke-width="14" stroke-linecap="round"/>
+          <g id="smNeedle" style="transform-origin:100px 100px;transition:transform .6s"><line x1="100" y1="100" x2="100" y2="30" stroke="#fff" stroke-width="3" stroke-linecap="round"/></g><circle cx="100" cy="100" r="6" fill="#fff"/></svg>
+        <div id="smScore" class="big" style="font-size:38px;margin-top:-6px">0</div><div id="smVerdict" style="font-weight:600">—</div>
+        <div id="smComps" style="text-align:left;margin-top:12px"></div></div>
+      <div class="card"><b>🤖 Ce que ça change pour le bot</b><div id="smBot" style="margin-top:8px;line-height:1.5"></div></div>
+      <div class="card"><b>🏦 ETF Bitcoin : l'argent des institutions (BlackRock IBIT et autres)</b><div id="sEtf" style="margin-top:8px"><span class="mut">Saisis ta clé SoSoValue pour afficher les flux.</span></div></div>
+      <div class="card"><b>🏢 Entreprises qui achètent du Bitcoin</b><div id="sTre" style="margin-top:8px"></div></div>
+      <div class="card"><b>🐋 Baleines sur Kraken, en direct</b><div id="sKw" style="margin-top:8px"></div></div>
+      <div class="card"><b>⛓️ Gros mouvements Bitcoin (en attente de confirmation)</b><div id="sWh" style="margin-top:8px">Chargement…</div></div>
+      <div class="card"><b>🏛️ Congrès américain</b><div id="sCg" style="margin-top:8px">Chargement…</div></div>
+      <div class="card"><b>📚 Sources à suivre</b><div id="sIn" style="margin-top:8px"></div></div>
+      <div class="mut" style="line-height:1.5">⚠️ Tout ce qui est public arrive après coup (déclarations sous 45 jours, flux ETF après la clôture américaine). Ce sont des indices de contexte, pas une prédiction.</div>`;
+    $('sosoSave').onclick = () => { try{ localStorage.setItem('sosoKey', $('sosoKey').value.trim()); localStorage.removeItem('etfCache'); }catch(e){}
+      $('sosoSt').textContent = 'Test…'; loadETF().then(() => { loadTreasury(); if(data.length) refresh(); renderSM(); }); };
+    loadCongress(); renderInst(); drawETF(); loadTreasury();
+  }
+  loadWhales(); renderSM();
+}
+
+const VIEWS = {chart:['col','flex'], trades:['tradesView','block'], smart:['smartView','block'], bot:['botView','block']};
+let smartTimer = null;
+document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('#tabs button').forEach(x => x.classList.toggle('on', x === b));
+  Object.entries(VIEWS).forEach(([k,[id,disp]]) => $(id).style.display = k === b.dataset.t ? disp : 'none');
+  document.querySelector('aside').style.display = (b.dataset.t === 'smart' || b.dataset.t === 'bot') ? 'none' : '';
+  clearInterval(smartTimer);
+  if(b.dataset.t === 'bot') loadBot();
+  if(b.dataset.t === 'smart'){ loadSmart(); smartTimer = setInterval(loadWhales, 30000); }
+});
+
+let posLines = [];
+function refresh(){
+  const r = compute(data), n = data.length, ser = (k,a)=>data.map((x,i)=>({time:x.time,value:a[i]})).filter(q=>q.value!=null&&Number.isFinite(q.value));
+  ['ema20','ema50','ema200','bbu','bbl'].forEach(k => lines[k].setData(ser(k, r[{ema20:'e20',ema50:'e50',ema200:'e200',bbu:'bbu',bbl:'bbl'}[k]])));
+  lines.stUp.setData(data.map((x,i)=> r.dir[i]===1 ? {time:x.time,value:r.st[i]} : {time:x.time}));
+  lines.stDn.setData(data.map((x,i)=> r.dir[i]===-1 ? {time:x.time,value:r.st[i]} : {time:x.time}));
+  vol.setData(data.map(x=>({time:x.time,value:x.volume||0,color:x.close>=x.open?'#26a69a55':'#ef535055'})));
+  rsiS.setData(ser('',r.rsi)); macdL.setData(ser('',r.macd)); sigL.setData(ser('',r.sg));
+  mhS.setData(data.map((x,i)=>({time:x.time,value:r.mh[i],color:r.mh[i]>=0?'#26a69a':'#ef5350'})));
+
+  const B = backtest(data, r); lastMarks = B.marks; applyMarks();
+  posLines.forEach(l => candles.removePriceLine(l)); posLines = [];
+  if(B.pos){ [['Entrée',B.pos.px,'#aaa'],[B.pos.tp?'Stop':'Stop suiveur',B.pos.sl,'#ff1744'],['Objectif',B.pos.tp,'#00e676']].filter(x=>x[1]!=null).forEach(([t,pr,c]) =>
+    posLines.push(candles.createPriceLine({price:pr,color:c,lineWidth:1,lineStyle:0,axisLabelVisible:true,title:t}))); }
+
+  const wins = B.T.filter(t=>t.pct>0).length; let eq=1, pk=1, dd=0;
+  B.T.forEach(t => { eq*=1+t.pct; pk=Math.max(pk,eq); dd=Math.min(dd,eq/pk-1); });
+  const pc = x => (x>=0?'+':'')+(x*100).toFixed(1)+'%', bh = (data[n-2].close/data[50].close-1) - 2*FEE;
+  lastPos = B.pos; const smv = smScore().score;
+  $('pos').innerHTML = (B.pos ? '<span class="b">En position</span>' : 'Hors position') + (B.pos && smv<=-35 ? ' <span class="s" style="font-size:12px">⚠️ smart money vendeuse</span>' : '') + (B.next==='buy' ? ' <span class="b" style="font-size:12px">⏭ achat à la prochaine ouverture</span>' : B.next==='sell' ? ' <span class="s" style="font-size:12px">⏭ sortie à la prochaine ouverture</span>' : '') + (!B.pos && smv>=35 ? ' <span class="b" style="font-size:12px">👀 smart money acheteuse</span>' : '');
+  $('perf').innerHTML = (B.pos ? `Acheté à ${fmt(B.pos.px)} · stop ${fmt(B.pos.sl)} ${B.pos.tp?' · objectif '+fmt(B.pos.tp):' (suiveur)'}<br>` : '') +
+    (B.T.length ? `Backtest : ${B.T.length} trades · ${(wins/B.T.length*100).toFixed(0)}% gagnants<br>Résultat <b class="${eq>=1?'b':'s'}">${pc(eq-1)}</b> · pire creux ${pc(dd)}<br>Acheter-garder : ${pc(bh)}` : 'Backtest : pas encore de trade fermé.');
+
+  const CAP = 1000, cur = /USD/.test(sym) ? ' $' : ' €', eur = x => Math.round(x).toLocaleString('fr-FR') + cur;
+  const losses = B.T.length - wins, gain = CAP*eq - CAP*(1+bh);
+  const dt = t => new Date(t*1000).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+  const gp = B.T.filter(t=>t.pct>0).reduce((a,t)=>a+t.pct,0), lp = -B.T.filter(t=>t.pct<=0).reduce((a,t)=>a+t.pct,0), nT = B.T.length;
+  $('period').innerHTML = `Sans bot = acheter le ${dt(data[50].time)} à ${fmt(data[50].close)}, garder jusqu'au ${dt(data[n-2].time)} à ${fmt(data[n-2].close)} (frais et glissement inclus).<br>Fiabilité : <b>${nT<10?'très faible':nT<30?'faible':'correcte'}</b> (${nT} trades) · gain moyen par trade ${nT?pc(B.T.reduce((a,t)=>a+t.pct,0)/nT):'—'} · facteur de profit ${lp?(gp/lp).toFixed(2):(gp?'∞':'—')}`;
+  $('cap1').textContent = eur(CAP);
+  $('without').textContent = eur(CAP*(1+bh)); $('without').style.color = bh>=0 ? 'var(--g)' : 'var(--r)';
+  $('withbot').textContent = eur(CAP*eq);      $('withbot').style.color = eq>=1 ? 'var(--g)' : 'var(--r)';
+  $('verdict').innerHTML = !B.T.length ? '<span class="mut">Pas encore assez de trades</span>' :
+    gain >= 0 ? `<span class="b">Le bot fait mieux : +${eur(gain)}</span>` : `<span class="s">Le bot fait moins bien : −${eur(-gain)}</span>`;
+  $('cw').textContent = '✔ ' + wins; $('cl').textContent = '✘ ' + losses;
+  $('cr').textContent = B.T.length ? (wins/B.T.length*100).toFixed(0) + '% réussite' : '—';
+  $('wbar').style.width = (B.T.length ? wins/B.T.length*100 : 0) + '%';
+
+  const sc_ = STRAT==='C'?r.scoreC:STRAT==='B'?r.scoreB:r.score, mxS = STRAT==='C'?10:STRAT==='B'?9:8, thr = STRAT==='A'?5:6;
+  const last = data[n-1], s = sc_[n-1];
+  $('price').textContent = fmt(last.close);
+  $('price').style.color = last.close >= data[Math.max(0,n-2)].close ? 'var(--g)' : 'var(--r)';
+  $('bias').textContent = (s>=thr?'Haussier ':s<=-3?'Baissier ':'Neutre ') + (s>0?'+':'') + (+s.toFixed(1)) + '/' + mxS;
+  $('bias').style.color = s>=thr?'var(--g)':s<=-3?'var(--r)':'var(--tx)';
+  $('dot').style.left = ((s+mxS)/(2*mxS)*100)+'%';
+  $('ind').textContent = `RSI ${r.rsi[n-1].toFixed(0)} · ADX ${r.adx[n-1].toFixed(0)} · MACD ${r.mh[n-1]>0?'+':'−'} · ST ${r.dir[n-1]>0?'↑':'↓'}`;
+  $('log').innerHTML = B.log.length ? B.log.slice(-8).reverse().map(x =>
+    `<div class="sig"><span class="${x.up?'b':'s'}">${x.up?'▲':'▼'} ${x.txt}</span><span>${fmt(x.p)} <span class="mut">${new Date(x.t*1000).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</span></span></div>`).join('')
+    : '<span class="mut">Aucun pour l\'instant</span>';
+  renderTrades(B, n);
+  drawFib();
+}
+
+function drawFib(){
+  fibLines.forEach(l => candles.removePriceLine(l)); fibLines = [];
+  if(!$('fib').checked) return;
+  const w = data.slice(-150), hi = Math.max(...w.map(x=>x.high)), lo = Math.min(...w.map(x=>x.low));
+  [0,.236,.382,.5,.618,.786,1].forEach(r => fibLines.push(candles.createPriceLine({
+    price:hi-(hi-lo)*r, color:[.382,.5,.618].includes(r)?'#d4a017':'#555', lineWidth:1, lineStyle:2,
+    axisLabelVisible:true, title:(r*100).toFixed(1)+'%'})));
+}
+$('fib').onchange = drawFib;
+
+function push(b){
+  const l = data[data.length-1];
+  if(b.time === l.time) data[data.length-1] = b; else { data.push(b); if(data.length>1000) data.shift(); }
+  candles.update(b); refresh();
+}
+
+function stop(){ if(ws){ws.onclose=null;ws.close();ws=null} clearInterval(demoTimer); clearInterval(stockTimer); stopTrades(); }
+
+function startWS(){
+  ws = new WebSocket('wss://ws.kraken.com/v2');
+  ws.onopen = () => { ws.send(JSON.stringify({method:'subscribe',params:{channel:'ohlc',symbol:[sym],interval:KMIN[iv]}}));
+    $('status').textContent = '🟢 Live Kraken'; };
+  ws.onmessage = e => { const m = JSON.parse(e.data);
+    if(m.channel !== 'ohlc' || !m.data) return;
+    m.data.forEach(k => { const t = Date.parse(k.interval_begin)/1000;
+      if(t >= data[data.length-1].time) push({time:t,open:+k.open,high:+k.high,low:+k.low,close:+k.close,volume:+k.volume}); }); };
+  ws.onclose = () => { $('status').textContent = '🔴 Reconnexion…'; setTimeout(startWS, 2000); };
+}
+
+function startDemo(){
+  $('status').textContent = '🟡 Mode démo (pas d\'accès à Kraken) — ouvre le fichier en local pour le live';
+  let p = 60000, t = Math.floor(Date.now()/1000/SECS[iv])*SECS[iv] - 400*SECS[iv];
+  data = [];
+  for(let i=0;i<400;i++){ const o=p; p*=1+(Math.random()-.5)*0.01;
+    data.push({time:t,open:o,high:Math.max(o,p)*1.002,low:Math.min(o,p)*0.998,close:p}); t+=SECS[iv]; }
+  candles.setData(data); refresh(); showLast();
+  let tick = 0;
+  demoTimer = setInterval(() => {
+    const l = data[data.length-1], c = l.close*(1+(Math.random()-.5)*0.004);
+    if(++tick % 8 === 0) push({time:l.time+SECS[iv],open:l.close,high:Math.max(l.close,c),low:Math.min(l.close,c),close:c});
+    else push({...l,high:Math.max(l.high,c),low:Math.min(l.low,c),close:c});
+  }, 600);
+}
+
+async function load(){
+  stop(); sym = $('sym').value.trim().toUpperCase().replace(/^([A-Z0-9]+?)(EUR|USD|USDT|GBP)$/, '$1/$2') || 'BTC/EUR'; iv = $('iv').value;
+  $('sym').value = sym;
+  isStock = !sym.includes('/'); FEE = isStock ? 0.002 : 0.0026; ASSET_SLIP = isStock ? 0.004 : 0.0005;
+  $('status').textContent = 'Chargement…';
+  if(isStock){
+    SM.tr = []; SM.wh = []; lastMarks = [];
+    try{ data = await fetchStock(sym, iv); if(data.length < 120) throw new Error('pas assez de bougies ('+data.length+')');
+      candles.setData(data); refresh(); showLast(); renderSM(); $('status').textContent = '🟢 '+sym+' · Yahoo via '+lastRoute+', actualisé chaque minute (marché fermé la nuit)';
+      stockTimer = setInterval(pollStock, 60000);
+    }catch(e){ data = []; $('status').textContent = '❌ '+sym+' : '+e.message+'. Pour le live, lance relais.py sur ton ordinateur, sinon utilise 📂 CSV.'; }
+    return;
+  }
+  try{
+    const pair = sym.replace('/','').replace(/^BTC/,'XBT');
+    const r = await fetch(`https://api.kraken.com/0/public/OHLC?pair=${pair}&interval=${KMIN[iv]}`);
+    const j = await r.json();
+    if(j.error && j.error.length) throw new Error(j.error[0]);
+    const rows = j.result[Object.keys(j.result).find(k => k !== 'last')];
+    data = rows.map(k=>({time:k[0],open:+k[1],high:+k[2],low:+k[3],close:+k[4],volume:+k[6]}));
+    candles.setData(data); refresh(); showLast(); startWS(); startTrades();
+  }catch(e){
+    if(String(e.message).startsWith('E')){ $('status').textContent = '❌ Symbole inconnu sur Kraken (ex : BTC/EUR, ETH/EUR, SOL/EUR)'; return; }
+    startDemo();
+  }
+}
+function stats(d){
+  const r = compute(d), o = {bh:(d[d.length-2].close/d[50].close-1)-2*FEE, days:(d[d.length-2].time-d[50].time)/86400};
+  ['A','B','C'].forEach(S => { const B = backtest(d, r, S); let eq = 1; B.T.forEach(t => eq *= 1 + t.pct); o[S] = {n:B.T.length, res:eq-1}; });
+  return o;
+}
+async function compare(){
+  const pc = x => `<span class="${x>=0?'b':'s'}">${x>=0?'+':''}${(x*100).toFixed(1)}%</span>`;
+  const dur = x => x < 1 ? Math.round(x*24)+' h' : Math.round(x)+' j';
+  const pair = sym.replace('/','').replace(/^BTC/,'XBT'); let rows = '';
+  $('cmp').disabled = true; $('cmpT').textContent = 'Calcul en cours…';
+  for(const k of Object.keys(KMIN)){
+    try{
+      const d = isStock ? await fetchStock(sym, k) : await fetchKraken(pair, k);
+      const t = stats(d);
+      rows += `<tr><td><b>${k}</b> <span class="mut">${dur(t.days)}</span></td>` + ['A','B','C'].map(S => `<td>${pc(t[S].res)} <span class="mut">(${t[S].n})</span></td>`).join('') + `<td>${pc(t.bh)}</td></tr>`;
+    }catch(e){ rows += `<tr><td><b>${k}</b></td><td colspan="4">indisponible</td></tr>`; }
+    await new Promise(r => setTimeout(r, 300));
+  }
+  $('cmpT').innerHTML = `<table style="width:100%;font-size:11px;border-collapse:collapse;text-align:right">
+    <tr class="mut"><th style="text-align:left">Interv.</th><th>A</th><th>B</th><th>C</th><th>Sans bot</th></tr>${rows}</table>
+    <div style="margin-top:8px">Chaque ligne couvre une durée différente, donc les % ne se comparent pas directement. Sous ~20 trades, le résultat est peu fiable. Les intervalles courts (1m à 1h) perdent surtout à cause des frais : regarde plutôt 4h et 1d.</div>`;
+  $('cmp').disabled = false;
+}
+$('cmp').onclick = compare; $('wf').onclick = walkForward;
+$('strat').onchange = () => { STRAT = $('strat').value; refresh(); };
+$('go').onclick = load; $('sym').onkeydown = e => e.key==='Enter' && load();
+$('iv').onchange = load;
+load(); loadMacro();
+$('smBadge').onclick = () => document.querySelector('#tabs [data-t=smart]').click();
+}
+
+const SRCS = [
+  'https://cdnjs.cloudflare.com/ajax/libs/lightweight-charts/4.1.3/lightweight-charts.standalone.production.js',
+  'https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js',
+  'https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js'
+];
+const st = m => { const e = document.getElementById('status'); if(e) e.textContent = m; };
+window.addEventListener('unhandledrejection', e => { const m = String((e.reason && e.reason.message) || e.reason); if(!/ResizeObserver/.test(m)) st('❌ Erreur : ' + m); });
+window.addEventListener('error', e => { if(!/ResizeObserver/.test(e.message)) st('❌ Erreur : ' + e.message); });
+(function boot(i){
+  if(window.LightweightCharts) return app();
+  if(i >= SRCS.length) return st('❌ Librairie du graphique bloquée (bloqueur de pub, VPN ou pas d\'internet ?). Désactive-le puis recharge la page.');
+  st('Chargement du graphique…');
+  const sc = document.createElement('script');
+  sc.src = SRCS[i];
+  sc.onload = sc.onerror = () => boot(i + 1);
+  document.head.appendChild(sc);
+})(0);
+</script>
+</body>
+</html>
