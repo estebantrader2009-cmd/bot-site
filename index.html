@@ -1,0 +1,32 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Bot 24/24</title>
+<style>
+:root{--bg:#0b0e14;--c:#121722;--tx:#d6dbe5;--m:#7d889a;--g:#00e676;--r:#ff1744}
+body{background:var(--bg);color:var(--tx);font:14px system-ui,sans-serif;max-width:900px;margin:0 auto;padding:16px}
+.c{background:var(--c);border-radius:8px;padding:12px;margin:12px 0}.m{color:var(--m);font-size:12px}
+table{width:100%;border-collapse:collapse}td,th{padding:6px;text-align:right}td:first-child,th:first-child{text-align:left}
+.g{color:var(--g)}.r{color:var(--r)}.t{display:flex;justify-content:space-between;gap:8px;padding:8px;border-left:4px solid;margin:6px 0;background:#0b0e14;border-radius:6px}
+</style></head><body>
+<h2>🤖 Bot 24/24 — trades réels</h2><div class="m" id="up"></div>
+<div class="c"><b>Quel intervalle est le plus rentable ?</b><div id="rank" style="margin-top:8px"></div></div>
+<div class="c"><b>Positions ouvertes</b><div id="open" style="margin-top:8px"></div></div>
+<div class="c"><b>Derniers trades</b><div id="list"></div></div>
+<script>
+const $=i=>document.getElementById(i),
+pc=x=>`<span class="${x>=0?'g':'r'}">${x>=0?'+':''}${(x*100).toFixed(1)}%</span>`,
+dt=t=>new Date(t*1000).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}),
+get=u=>fetch(u+'?t='+Date.now()).then(r=>r.ok?r.json():null).catch(()=>null);
+(async()=>{
+ const [S,T0]=await Promise.all([get('data/state.json'),get('data/trades.json')]), T=T0||[];
+ if(!S){$('rank').textContent='Pas encore de données : lance le workflow dans GitHub (onglet Actions).';return}
+ const K=Object.keys(S), G={}; K.forEach(k=>G[k]={n:0,w:0,eq:1});
+ T.forEach(t=>{const g=G[t.key]||(G[t.key]={n:0,w:0,eq:1});g.n++;g.w+=t.pct>0;g.eq*=1+t.pct});
+ $('up').textContent='Dernière bougie analysée : '+dt(Math.max(...K.map(k=>S[k].last)));
+ $('rank').innerHTML='<table><tr class="m"><th>Actif · intervalle</th><th>Trades</th><th>Réussite</th><th>Résultat</th></tr>'+
+  Object.entries(G).sort((a,b)=>b[1].eq-a[1].eq).map(([k,g])=>`<tr><td>${k.replace('|',' · ')}</td><td>${g.n}</td><td>${g.n?Math.round(g.w/g.n*100)+'%':'—'}</td><td>${pc(g.eq-1)}</td></tr>`).join('')+'</table>'+
+  '<div class="m" style="margin-top:6px">Sous ~30 trades, le résultat n\'est pas fiable. Frais Kraken inclus.</div>';
+ const O=K.filter(k=>S[k].pos);
+ $('open').innerHTML=O.length?O.map(k=>{const p=S[k].pos;return `<div class="t" style="border-color:#ffd54f"><span>🟡 ${k.replace('|',' · ')}</span><span>acheté ${p.px.toFixed(2)} · 🛑 ${p.sl.toFixed(2)} ${p.tp?' · 🎯 '+p.tp.toFixed(2):' · stop suiveur'} <span class="m">${dt(p.t)}</span></span></div>`}).join(''):'<span class="m">Aucune pour l\'instant</span>';
+ const W={STOP:'🛑 Stop',OBJECTIF:'🎯 Objectif',VENTE:'↩️ Retournement'};
+ $('list').innerHTML=T.length?T.slice(-50).reverse().map(t=>`<div class="t" style="border-color:var(${t.pct>=0?'--g':'--r'})"><span><b>${t.key.replace('|',' · ')}</b> <span class="m">${W[t.why]}</span></span><span>${t.p0.toFixed(2)} → ${t.p1.toFixed(2)} · ${pc(t.pct)} <span class="m">${dt(t.t1)}</span></span></div>`).join(''):'<div class="m" style="padding:8px 0">Aucun trade terminé. Le bot attend un signal.</div>';
+})();
+</script></body></html>
