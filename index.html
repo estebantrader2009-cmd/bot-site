@@ -22,11 +22,11 @@ get=u=>fetch(u+'?t='+Date.now()).then(r=>r.ok?r.json():null).catch(()=>null);
  T.forEach(t=>{const g=G[t.key]||(G[t.key]={n:0,w:0,eq:1});g.n++;g.w+=t.pct>0;g.eq*=1+t.pct});
  $('up').textContent='Dernière bougie analysée : '+dt(Math.max(...K.map(k=>S[k].last)));
  $('rank').innerHTML='<table><tr class="m"><th>Actif · intervalle</th><th>Trades</th><th>Réussite</th><th>Résultat</th></tr>'+
-  Object.entries(G).sort((a,b)=>b[1].eq-a[1].eq).map(([k,g])=>`<tr><td>${k.replace('|',' · ')}</td><td>${g.n}</td><td>${g.n?Math.round(g.w/g.n*100)+'%':'—'}</td><td>${pc(g.eq-1)}</td></tr>`).join('')+'</table>'+
+  Object.entries(G).sort((a,b)=>b[1].eq-a[1].eq).map(([k,g])=>`<tr><td>${k.replace(/\|/g,' · ')}</td><td>${g.n}</td><td>${g.n?Math.round(g.w/g.n*100)+'%':'—'}</td><td>${pc(g.eq-1)}</td></tr>`).join('')+'</table>'+
   '<div class="m" style="margin-top:6px">Sous ~30 trades, le résultat n\'est pas fiable. Frais Kraken inclus.</div>';
  const O=K.filter(k=>S[k].pos);
- $('open').innerHTML=O.length?O.map(k=>{const p=S[k].pos;return `<div class="t" style="border-color:#ffd54f"><span>🟡 ${k.replace('|',' · ')}</span><span>acheté ${p.px.toFixed(2)} · 🛑 ${p.sl.toFixed(2)} ${p.tp?' · 🎯 '+p.tp.toFixed(2):' · stop suiveur'} <span class="m">${dt(p.t)}</span></span></div>`}).join(''):'<span class="m">Aucune pour l\'instant</span>';
+ $('open').innerHTML=O.length?O.map(k=>{const p=S[k].pos;return `<div class="t" style="border-color:#ffd54f"><span>🟡 ${k.replace(/\|/g,' · ')}</span><span>acheté ${p.px.toFixed(2)} · 🛑 ${p.sl.toFixed(2)} ${p.tp?' · 🎯 '+p.tp.toFixed(2):' · stop suiveur'} <span class="m">${dt(p.t)}</span></span></div>`}).join(''):'<span class="m">Aucune pour l\'instant</span>';
  const W={STOP:'🛑 Stop',OBJECTIF:'🎯 Objectif',VENTE:'↩️ Retournement'};
- $('list').innerHTML=T.length?T.slice(-50).reverse().map(t=>`<div class="t" style="border-color:var(${t.pct>=0?'--g':'--r'})"><span><b>${t.key.replace('|',' · ')}</b> <span class="m">${W[t.why]}</span></span><span>${t.p0.toFixed(2)} → ${t.p1.toFixed(2)} · ${pc(t.pct)} <span class="m">${dt(t.t1)}</span></span></div>`).join(''):'<div class="m" style="padding:8px 0">Aucun trade terminé. Le bot attend un signal.</div>';
+ $('list').innerHTML=T.length?T.slice(-50).reverse().map(t=>`<div class="t" style="border-color:var(${t.pct>=0?'--g':'--r'})"><span><b>${t.key.replace(/\|/g,' · ')}</b> <span class="m">${W[t.why]}</span></span><span>${t.p0.toFixed(2)} → ${t.p1.toFixed(2)} · ${pc(t.pct)} <span class="m">${dt(t.t1)}</span></span></div>`).join(''):'<div class="m" style="padding:8px 0">Aucun trade terminé. Le bot attend un signal.</div>';
 })();
 </script></body></html>
