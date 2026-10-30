@@ -1,12 +1,12 @@
 {
  "BTC/EUR|4h|A": {
-  "last": 1793361600,
+  "last": 1793376000,
   "pos": null,
   "pend": null,
   "pa": 756.8594829731123
  },
  "BTC/EUR|4h|B": {
-  "last": 1793361600,
+  "last": 1793376000,
   "pos": null,
   "pend": null,
   "pa": 722.554232783825
@@ -24,13 +24,13 @@
   "pa": 1790.083601610911
  },
  "ETH/EUR|4h|A": {
-  "last": 1793361600,
+  "last": 1793376000,
   "pos": null,
   "pend": null,
   "pa": 32.09552266223111
  },
  "ETH/EUR|4h|B": {
-  "last": 1793361600,
+  "last": 1793376000,
   "pos": null,
   "pend": null
  },
