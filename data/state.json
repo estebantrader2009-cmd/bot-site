@@ -1,46 +1,53 @@
 {
  "BTC/EUR|4h|A": {
-  "last": 1793808000,
-  "pos": null,
+  "last": 1793836800,
+  "pos": {
+   "px": 71626.89555,
+   "t": 1793836800,
+   "hh": 71626.89555,
+   "sl": 69605.5271676975,
+   "tp": 74658.94812345375
+  },
   "pend": null,
-  "pa": 756.8594829731123
+  "pa": 1010.6841911512506
  },
  "BTC/EUR|4h|B": {
-  "last": 1793808000,
+  "last": 1793836800,
   "pos": null,
   "pend": null,
   "pa": 722.554232783825
  },
  "BTC/EUR|1d|A": {
-  "last": 1793664000,
+  "last": 1793750400,
   "pos": null,
   "pend": null,
   "pa": 1790.083601610911
  },
  "BTC/EUR|1d|B": {
-  "last": 1793664000,
+  "last": 1793750400,
   "pos": null,
   "pend": null,
   "pa": 1790.083601610911
  },
  "ETH/EUR|4h|A": {
-  "last": 1793808000,
+  "last": 1793836800,
   "pos": null,
-  "pend": null,
-  "pa": 32.09552266223111
+  "pend": "buy",
+  "pa": 34.85349065168227
  },
  "ETH/EUR|4h|B": {
-  "last": 1793808000,
+  "last": 1793836800,
   "pos": null,
-  "pend": null
+  "pend": "buy",
+  "pa": 34.85349065168227
  },
  "ETH/EUR|1d|A": {
-  "last": 1793664000,
+  "last": 1793750400,
   "pos": null,
   "pend": null
  },
  "ETH/EUR|1d|B": {
-  "last": 1793664000,
+  "last": 1793750400,
   "pos": null,
   "pend": null
  }
